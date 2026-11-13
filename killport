@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -uo pipefail
+export LC_ALL=C
+
+usage() {
+    echo 'Usage: killport [--force] PORT [PORT ...]'
+    echo 'Free TCP ports by sending SIGTERM, or SIGKILL with --force.'
+}
+
+signal=TERM
+if [[ ${1:-} == --help || ${1:-} == -h ]]; then
+    usage
+    exit 0
+fi
+if [[ ${1:-} == --force ]]; then
+    signal=KILL
+    shift
+fi
+if (( $# == 0 )); then
+    usage >&2
+    exit 2
+fi
+
+for port in "$@"; do
+    if [[ ! $port =~ ^[0-9]{1,5}$ ]] || (( 10#$port < 1 || 10#$port > 65535 )); then
+        echo "Invalid port: $port (expected 1-65535)" >&2
+        exit 2
+    fi
+done
+
+if ! command -v fuser >/dev/null 2>&1; then
+    echo 'fuser is required. Install on Fedora: sudo dnf install psmisc' >&2
+    exit 1
+fi
+
+status=0
+for port in "$@"; do
+    port=$((10#$port))
+    if ! fuser -s -n tcp "$port"; then
+        echo "TCP port $port: no accessible processes found."
+        continue
+    fi
+    if fuser -k -"$signal" -n tcp "$port"; then
+        echo "TCP port $port: sent SIG$signal to processes."
+    else
+        echo "Failed to terminate processes on port $port. You may need sudo." >&2
+        status=1
+    fi
+done
+exit "$status"

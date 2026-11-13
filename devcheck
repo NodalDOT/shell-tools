@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -uo pipefail
+export LC_ALL=C
+
+if [[ $# != 0 ]]; then
+    echo 'Usage: devcheck - check web development tools and Docker availability.'
+    [[ $# == 1 && ( $1 == --help || $1 == -h ) ]] && exit 0
+    exit 2
+fi
+
+for tool in node npm pnpm yarn bun git docker; do
+    if command -v "$tool" >/dev/null 2>&1; then
+        if version=$(timeout 10s "$tool" --version 2>&1); then
+            printf '%-10s %s\n' "$tool" "$version"
+        else
+            printf '%-10s version check failed: %s\n' "$tool" "$version"
+        fi
+    else
+        printf '%-10s not installed / not in PATH\n' "$tool"
+    fi
+done
+
+if command -v docker >/dev/null 2>&1; then
+    echo
+    if result=$(timeout 5s docker info --format '{{.ServerVersion}}' 2>&1); then
+        printf 'Docker Engine is available, version: %s\n' "$result"
+    else
+        printf 'Docker Engine is unavailable (service, context, or permissions).\n%s\n' "$result"
+    fi
+fi

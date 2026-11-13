@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -uo pipefail
+export LC_ALL=C
+
+if [[ $# != 0 ]]; then
+    echo 'Usage: ports - show listening TCP/UDP ports and processes.'
+    [[ $# == 1 && ( $1 == --help || $1 == -h ) ]] && exit 0
+    exit 2
+fi
+
+if ! command -v ss >/dev/null 2>&1; then
+    echo 'ss is required: sudo dnf install iproute' >&2
+    exit 1
+fi
+
+ss -H -lntup | awk '
+    {
+        protocol = $1
+        port = $5
+        sub(/^.*:/, "", port)
+        rest = $0
+        found = 0
+        while (match(rest, /\("[^"]*",pid=[0-9]+/)) {
+            process = substr(rest, RSTART, RLENGTH)
+            rest = substr(rest, RSTART + RLENGTH)
+            sub(/^\("/, "", process)
+            split(process, parts, /",pid=/)
+            print port, protocol, parts[2], parts[1]
+            found = 1
+        }
+        if (!found) print port, protocol, "-", "-"
+    }
+' | sort -k1,1n -k2,2 -k3,3n -k4,4 -u | awk '
+    BEGIN { printf "%-5s %-4s %7s  %s\n", "PORT", "TYPE", "PID", "PROCESS" }
+    {
+        process = $0
+        sub(/^[^ ]+ +[^ ]+ +[^ ]+ +/, "", process)
+        printf "%-5s %-4s %7s  %s\n", $1, $2, $3, process
+    }
+'

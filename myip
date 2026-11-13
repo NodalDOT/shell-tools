@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -uo pipefail
+export LC_ALL=C
+
+if [[ $# != 0 ]]; then
+    echo 'Usage: myip - show local IPv4 addresses of active interfaces.'
+    [[ $# == 1 && ( $1 == --help || $1 == -h ) ]] && exit 0
+    exit 2
+fi
+
+if ! command -v ip >/dev/null 2>&1; then
+    echo 'ip is required: sudo dnf install iproute' >&2
+    exit 1
+fi
+ip -o -4 addr show up | awk '
+    $2 != "lo" {
+        split($4, address, "/")
+        printf "%-20s %s\n", $2, address[1]
+        found = 1
+    }
+    END { if (!found) print "No active interfaces with IPv4 addresses found." }
+'

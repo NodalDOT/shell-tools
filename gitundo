@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export LC_ALL=C
+
+if [[ $# != 0 ]]; then
+    echo 'Usage: gitundo - undo the last local commit, keeping changes staged.'
+    [[ $# == 1 && ( $1 == --help || $1 == -h ) ]] && exit 0
+    exit 2
+fi
+
+if ! command -v git >/dev/null 2>&1; then
+    echo 'Git is required: sudo dnf install git' >&2
+    exit 1
+fi
+if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+    echo 'Run gitundo inside a Git working tree.' >&2
+    exit 1
+fi
+if ! git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+    echo 'No parent commit found: at least two commits are required.' >&2
+    exit 1
+fi
+commit=$(git log -1 --format='%h %s')
+git reset --soft HEAD^
+printf 'Undid commit: %s\nChanges are kept staged.\n' "$commit"
